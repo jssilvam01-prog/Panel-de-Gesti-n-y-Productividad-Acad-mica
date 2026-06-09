@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agile Forge - Panel de Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg-global: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --primary: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+            --primary-shadow: rgba(59, 130, 246, 0.25);
+            --success-bg: #f0fdf4;
+            --success-text: #16a34a;
+            --danger-bg: #fef2f2;
+            --danger-text: #dc2626;
+            --border: #e2e8f0;
+            
+            --prio-alta: #fee2e2;
+            --prio-alta-txt: #991b1b;
+            --prio-media: #fef3c7;
+            --prio-media-txt: #92400e;
+            --prio-baja: #f0fdfa;
+            --prio-baja-txt: #0f766e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        body { 
+            background: var(--bg-global); 
+            color: var(--text-main); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            width: 100vw;
+            padding: 30px; 
+            overflow-x: hidden;
+        }
+        
+        /* CONTENEDOR REDISEÑADO: Ancho expandido para albergar dos columnas */
+        .app-container { 
+            width: 100%; 
+            max-width: 1100px; 
+            background: var(--bg-card); 
+            padding: 35px; 
+            border-radius: 24px; 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.07); 
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            animation: fadeInContainer 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        h2 { font-size: 26px; font-weight: 800; text-align: left; color: #0f172a; letter-spacing: -0.8px; margin-bottom: 5px; }
+        .brand-subtitle { font-size: 14px; color: var(--text-muted); font-weight: 500; margin-bottom: 15px; }
+
+        /* ARQUITECTURA MASTER-DETAIL (Dos Columnas en Desktop) */
+        .workspace-layout {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 35px;
+            align-items: start;
+        }
+
+        /* COLUMNA IZQUIERDA: Panel de Mandos Estático */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            position: sticky;
+            top: 20px;
+        }
+
+        /* COLUMNA DERECHA: Espacio de Trabajo Dinámico */
+        .tasks-panel {
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            height: 560px; /* Altura fija para el control total del viewport */
+        }
+
+        /* Dashboard de Métricas */
+        .dashboard { background: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid var(--border); }
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .dashboard-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        .stats-count { font-size: 18px; font-weight: 800; color: #4f46e5; }
+        .progress-bar-container { width: 100%; height: 8px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
+        .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #4f46e5 0%, #10b981 100%); transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); border-radius: 99px; }
+
+        /* Formulario Operativo */
+        .form-group { display: flex; flex-direction: column; gap: 14px; background: #fff; border: 1px solid var(--border); padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.01); }
+        .input-main { padding: 14px 16px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 14px; background: #f8fafc; outline: none; transition: all 0.2s ease; width: 100%; color: var(--text-main); font-weight: 500; }
+        .input-main:focus { background: #fff; border-color: #4f46e5; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+        
+        .form-row-meta { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+        .meta-selectors { display: flex; gap: 10px; width: 100%; }
+        input[type="date"], select { padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 13px; color: var(--text-main); outline: none; flex: 1; background: #f8fafc; transition: all 0.2s; min-width: 0; cursor: pointer; font-weight: 500; }
+        input[type="date"]:focus, select:focus { background: #fff; border-color: #4f46e5; }
+        
+        #addBtn { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; width: 100%; box-shadow: 0 4px 12px var(--primary-shadow); }
+        #addBtn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px var(--primary-shadow); opacity: 0.95; }
+        #addBtn:active { transform: translateY(1px); }
+        .error-msg { color: var(--danger-text); font-size: 12px; font-weight: 600; display: none; padding-left: 4px; margin-top: -4px; }
+
+        /* Controles Superiores de la Lista */
+        .search-box { padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 14px; width: 100%; margin-bottom: 16px; outline: none; background: #fff; transition: all 0.2s; }
+        .search-box:focus { border-color: #4f46e5; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+        
+        .filters { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+        .filter-btn { background: none; border: none; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-radius: 99px; transition: all 0.2s; }
+        .filter-btn:hover { color: var(--text-main); background: #e2e8f0; }
+        .filter-btn.active { color: #4f46e5; background: rgba(79, 70, 229, 0.1); }
+
+        /* Lista con Scroll Interno Independiente */
+        .task-list-container { flex: 1; overflow-y: auto; padding-right: 4px; }
+        .task-list-container::-webkit-scrollbar { width: 6px; }
+        .task-list-container::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 99px; }
+
+        ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+        li { background: #fff; padding: 16px 20px; border-radius: 14px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; transition: all 0.25s ease; animation: slideUp 0.4s ease-out; }
+        li:hover { border-color: #cbd5e1; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+        
+        .task-left { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+        input[type="checkbox"] { width: 20px; height: 20px; border: 2px solid #cbd5e1; border-radius: 6px; cursor: pointer; accent-color: #10b981; flex-shrink: 0; }
+        
+        .task-details { display: flex; flex-direction: column; gap: 4px; min-width: 0; width: 100%; }
+        .task-title-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; }
+        .task-text { font-size: 15px; font-weight: 600; color: #1e293b; word-break: break-all; white-space: normal; flex: 1; min-width: 0; }
+        
+        .badge-priority { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
+        .prio-alta { background: var(--prio-alta); color: var(--prio-alta-txt); }
+        .prio-media { background: var(--prio-media); color: var(--prio-media-txt); }
+        .prio-baja { background: var(--prio-baja); color: var(--prio-baja-txt); }
+        
+        .task-meta-row { display: flex; gap: 8px; font-size: 12px; font-weight: 500; align-items: center; }
+        .task-date { color: var(--text-muted); }
+        .task-countdown { font-weight: 600; padding: 1px 6px; border-radius: 4px; background: #edf2f7; }
+        .time-urgent { color: #ef4444; background: #fef2f2; }
+        .time-normal { color: #d97706; background: #fff7ed; }
+        .time-safe { color: #2563eb; background: #eff6ff; }
+
+        .completed-task { background: var(--success-bg) !important; border-color: #bbf7d0 !important; }
+        .completed-task .task-text { text-decoration: line-through; color: var(--success-text); opacity: 0.5; }
+        .completed-task .badge-priority { background: #d1fae5; color: var(--success-text); opacity: 0.6; }
+        .completed-task .task-countdown { display: none; }
+
+        .delete-btn { background: transparent; color: var(--text-muted); border: none; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; margin-left: 10px; display: flex; align-items: center; justify-content: center; }
+        .delete-btn:hover { background: var(--danger-bg); color: var(--danger-text); }
+        .delete-btn.confirm-state { background: var(--danger-text); color: white; width: auto; padding: 0 10px; font-size: 12px; font-weight: 700; border-radius: 6px; }
+
+        @keyframes fadeInContainer { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+        .shake { animation: shake 0.4s ease; border-color: var(--danger-text) !important; }
+
+        /* RESPONSIVE: Adaptabilidad total para pantallas móviles */
+        @media (max-width: 960px) {
+            body { padding: 15px; align-items: flex-start; }
+            .app-container { max-width: 100%; padding: 25px; border-radius: 16px; }
+            .workspace-layout { grid-template-columns: 1fr; gap: 25px; }
+            .control-panel { position: static; }
+            .tasks-panel { height: auto; max-height: 500px; padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div>
+            <h2>Agile Forge Core</h2>
+            <div class="brand-subtitle">Panel de Gestión y Productividad Académica</div>
+        </div>
+        
+        <div class="workspace-layout">
+            
+            <div class="control-panel">
+                <div class="dashboard">
+                    <div class="dashboard-header">
+                        <span class="dashboard-title">Eficiencia Operativa</span>
+                        <span class="stats-count" id="statsCount">0%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="taskName" class="input-main" placeholder="¿Cuál es la próxima entrega académica?">
+                    <span class="error-msg" id="errorMsg">⚠️ Se requiere especificar un título descriptivo.</span>
+                    <div class="form-row-meta">
+                        <div class="meta-selectors">
+                            <input type="date" id="taskDate">
+                            <select id="taskPriority">
+                                <option value="baja">Prioridad Baja</option>
+                                <option value="media" selected>Prioridad Media</option>
+                                <option value="alta">Prioridad Alta</option>
+                            </select>
+                        </div>
+                        <button id="addBtn">Añadir Tarea</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tasks-panel">
+                <input type="text" id="searchBox" class="search-box" placeholder="🔍 Buscar tareas en tiempo real...">
+
+                <div class="filters">
+                    <button class="filter-btn active" onclick="setFilter('all')">Todas</button>
+                    <button class="filter-btn" onclick="setFilter('pending')">Pendientes</button>
+                    <button class="filter-btn" onclick="setFilter('completed')">Completadas</button>
+                </div>
+
+                <div class="task-list-container">
+                    <ul id="taskList"></ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let state = { tasks: [], currentFilter: 'all', searchQuery: '' };
+
+        const taskNameInput = document.getElementById('taskName');
+        const taskDateInput = document.getElementById('taskDate');
+        const taskPriorityInput = document.getElementById('taskPriority');
+        const searchBox = document.getElementById('searchBox');
+        const addBtn = document.getElementById('addBtn');
+        const taskList = document.getElementById('taskList');
+        const errorMsg = document.getElementById('errorMsg');
+        const progressBar = document.getElementById('progressBar');
+        const statsCount = document.getElementById('statsCount');
+
+        taskDateInput.min = new Date().toISOString().split('T')[0];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                const saved = localStorage.getItem('agile_forge_premium_tasks');
+                if (saved) state.tasks = JSON.parse(saved);
+            } catch (e) { console.error(e); }
+            render();
+        });
+
+        function save() {
+            try { localStorage.setItem('agile_forge_premium_tasks', JSON.stringify(state.tasks)); } catch (e) { console.error(e); }
+        }
+
+        addBtn.addEventListener('click', () => {
+            const name = taskNameInput.value.trim();
+            const date = taskDateInput.value;
+            const priority = taskPriorityInput.value;
+
+            if (!name) {
+                taskNameInput.classList.add('shake');
+                errorMsg.style.display = 'block';
+                setTimeout(() => taskNameInput.classList.remove('shake'), 400);
+                return;
+            }
+
+            errorMsg.style.display = 'none';
+            state.tasks.push({ id: Date.now(), name: name, date: date ? date : null, priority: priority, completed: false });
+            save();
+            taskNameInput.value = '';
+            taskDateInput.value = '';
+            taskPriorityInput.value = 'media';
+            render();
+        });
+
+        searchBox.addEventListener('input', (e) => { state.searchQuery = e.target.value.toLowerCase(); render(); });
+
+        function setFilter(val) {
+            state.currentFilter = val;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.innerText.toLowerCase().includes(val === 'all' ? 'todas' : val === 'pending' ? 'pendientes' : 'completadas')) { btn.classList.add('active'); }
+            });
+            render();
+        }
+
+        function toggleTask(id) {
+            let yaEstabaCompletada = state.tasks.find(t => t.id === id)?.completed;
+            state.tasks = state.tasks.map(task => task.id === id ? { ...task, completed: !task.completed } : task);
+            save();
+            const total = state.tasks.length;
+            const comp = state.tasks.filter(t => t.completed).length;
+            if (!yaEstabaCompletada && comp === total && total > 0) {
+                confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+            }
+            render();
+        }
+
+        function handleDelete(btn, id) {
+            if (!btn.classList.contains('confirm-state')) {
+                btn.classList.add('confirm-state');
+                btn.innerText = '¿Borrar?';
+                setTimeout(() => { btn.classList.remove('confirm-state'); btn.innerHTML = '✕'; }, 3000);
+            } else {
+                const li = btn.parentElement;
+                li.style.opacity = '0';
+                li.style.transform = 'scale(0.95)';
+                setTimeout(() => { state.tasks = state.tasks.filter(t => t.id !== id); save(); render(); }, 200);
+            }
+        }
+
+        function getCountdownTemplate(dateStr, isCompleted) {
+            if (!dateStr) return `<span class="task-date">📅 Sin fecha asignada</span>`;
+            if (isCompleted) return `<span class="task-date">📅 Límite: ${dateStr}</span>`;
+
+            const diffTime = new Date(dateStr + "T23:59:59") - new Date();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) return `<span class="task-date">📅 ${dateStr} | </span><span class="task-countdown time-urgent">Atrasada ⚠️</span>`;
+            if (diffDays === 0) return `<span class="task-date">📅 ${dateStr} | </span><span class="task-countdown time-urgent">¡HOY! 🚨</span>`;
+            if (diffDays === 1) return `<span class="task-date">📅 ${dateStr} | </span><span class="task-countdown time-normal">Mañana ⏳</span>`;
+            return `<span class="task-date">📅 ${dateStr} | </span><span class="task-countdown time-safe">Faltan ${diffDays} días</span>`;
+        }
+
+        function render() {
+            taskList.innerHTML = '';
+            let processing = [...state.tasks].sort((a, b) => {
+                if (!a.date) return 1; if (!b.date) return -1;
+                return new Date(a.date) - new Date(b.date);
+            });
+
+            if (state.currentFilter === 'pending') processing = processing.filter(t => !t.completed);
+            if (state.currentFilter === 'completed') processing = processing.filter(t => t.completed);
+            if (state.searchQuery) processing = processing.filter(t => t.name.toLowerCase().includes(state.searchQuery));
+
+            processing.forEach(task => {
+                const li = document.createElement('li');
+                if (task.completed) li.classList.add('completed-task');
+
+                li.innerHTML = `
+                    <div class="task-left">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} onclick="toggleTask(${task.id})">
+                        <div class="task-details">
+                            <div class="task-title-row">
+                                <span class="task-text">${task.name}</span>
+                                <span class="badge-priority prio-${task.priority}">${task.priority}</span>
+                            </div>
+                            <div class="task-meta-row">
+                                ${getCountdownTemplate(task.date, task.completed)}
+                            </div>
+                        </div>
+                    </div>
+                    <button class="delete-btn" onclick="handleDelete(this, ${task.id})">✕</button>
+                `;
+                taskList.appendChild(li);
+            });
+
+            const total = state.tasks.length;
+            const completed = state.tasks.filter(t => t.completed).length;
+            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+            statsCount.innerText = `${pct}%`;
+            progressBar.style.width = `${pct}%`;
+        }
+    </script>
+</body>
+</html>
